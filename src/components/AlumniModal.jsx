@@ -77,7 +77,6 @@ const AlumniModal = ({
               />
             </div>
 
-            {/* Jalur Masuk */}
             <div className="group">
               <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                 <Route className="w-4 h-4 text-indigo-600" />
@@ -91,9 +90,10 @@ const AlumniModal = ({
                 required
               >
                 <option value="">-- Pilih Jalur Masuk --</option>
-                <option value="SNMPTN">SNMPTN</option>
-                <option value="SBMPTN">SBMPTN</option>
-                <option value="Mandiri">Mandiri</option>
+                <option value="BEASISWA">BEASISWA</option>
+                <option value="SNBT">SNBT</option>
+                <option value="MANDIRI">MANDIRI</option>
+                <option value="SPAN PTKIN">SPAN PTKIN</option>
               </select>
             </div>
 

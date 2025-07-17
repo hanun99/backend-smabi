@@ -1,8 +1,18 @@
 import React, { useEffect, useState } from "react";
-import { Eye, Pencil, Trash2, Plus, Users, Search, Filter } from "lucide-react";
+import {
+  Eye,
+  Pencil,
+  Trash2,
+  Plus,
+  Users,
+  Search,
+  Filter,
+  ChevronDown,
+} from "lucide-react";
 import supabase from "../utils/SupaClient";
 import Swal from "sweetalert2";
 import AlumniModal from "../components/AlumniModal";
+import Pagination from "../components/Pagination";
 import "sweetalert2/dist/sweetalert2.min.css";
 
 const Alumni = () => {
@@ -10,6 +20,9 @@ const Alumni = () => {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedAngkatan, setSelectedAngkatan] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
   const [newAlumni, setNewAlumni] = useState({
     nama: "",
     jurusan: "",
@@ -23,9 +36,20 @@ const Alumni = () => {
     fetchAlumni();
   }, []);
 
+  // Reset halaman ketika filter berubah
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedAngkatan]);
+
   const fetchAlumni = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from("alumni").select("*");
+    // Mengurutkan berdasarkan created_at descending (data terbaru di atas)
+    // Jika tidak ada created_at, bisa menggunakan id descending
+    const { data, error } = await supabase
+      .from("alumni")
+      .select("*")
+      .order("created_at", { ascending: false }); // Atau .order("id", { ascending: false })
+
     if (error) {
       console.error("Gagal mengambil data alumni:", error.message);
     } else {
@@ -115,6 +139,7 @@ const Alumni = () => {
         universitas: "",
         angkatan: "",
       });
+      // Fetch ulang data untuk mendapatkan urutan terbaru
       fetchAlumni();
       Swal.fire("Sukses", "Alumni berhasil ditambahkan", "success");
     }
@@ -145,15 +170,69 @@ const Alumni = () => {
     }
   };
 
-  // Filter alumni berdasarkan search term
-  const filteredAlumni = dataAlumni.filter(
-    (alumni) =>
-      alumni.nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      alumni.jurusan.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      alumni.jalur.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      alumni.universitas.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      alumni.angkatan.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Dapatkan daftar angkatan unik (filter yang valid) - tanpa debug
+  const uniqueAngkatan = [
+    ...new Set(
+      dataAlumni
+        .map((alumni) => alumni.angkatan)
+        .filter((angkatan) => angkatan != null && angkatan !== "")
+    ),
+  ].sort((a, b) => {
+    // Sort numerik jika angkatan berupa angka
+    if (!isNaN(a) && !isNaN(b)) {
+      return Number(a) - Number(b);
+    }
+    // Sort string jika bukan angka
+    return a.toString().localeCompare(b.toString());
+  });
+
+  // Filter alumni berdasarkan search term dan angkatan
+  const filteredAlumni = dataAlumni.filter((alumni) => {
+    // Pastikan semua field ada dan berupa string
+    const nama = alumni.nama || "";
+    const jurusan = alumni.jurusan || "";
+    const jalur = alumni.jalur || "";
+    const universitas = alumni.universitas || "";
+    const angkatan = alumni.angkatan || "";
+
+    const matchesSearch =
+      nama.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      jurusan.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      jalur.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      universitas.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      angkatan.toString().toLowerCase().includes(searchTerm.toLowerCase());
+
+    // Perbandingan yang lebih ketat untuk angkatan - konversi keduanya ke string
+    const matchesAngkatan =
+      selectedAngkatan === "all" ||
+      alumni.angkatan?.toString() === selectedAngkatan.toString();
+
+    return matchesSearch && matchesAngkatan;
+  });
+
+  // Hitung pagination
+  const totalPages = Math.ceil(filteredAlumni.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentAlumni = filteredAlumni.slice(startIndex, endIndex);
+
+  // Hitung statistik berdasarkan angkatan
+  const getAngkatanStats = () => {
+    const stats = {};
+    dataAlumni.forEach((alumni) => {
+      const angkatan = alumni.angkatan;
+      if (angkatan != null && angkatan !== "") {
+        if (stats[angkatan]) {
+          stats[angkatan]++;
+        } else {
+          stats[angkatan] = 1;
+        }
+      }
+    });
+    return stats;
+  };
+
+  const angkatanStats = getAngkatanStats();
 
   return (
     <div className="min-h-screen from-slate-50 via-white to-slate-100 p-6">
@@ -187,41 +266,130 @@ const Alumni = () => {
             </button>
           </div>
 
-          {/* Search Bar */}
-          <div className="relative mb-6">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
+          {/* Search and Filter */}
+          <div className="flex flex-col lg:flex-row gap-4 mb-6">
+            {/* Search Bar */}
+            <div className="relative flex-1">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Cari alumni berdasarkan nama, jurusan, jalur, universitas..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 bg-white/70 backdrop-blur-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
+              />
             </div>
-            <input
-              type="text"
-              placeholder="Cari alumni berdasarkan nama, jurusan, jalur, universitas, atau angkatan..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-white/70 backdrop-blur-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
-            />
+
+            {/* Filter Angkatan */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <Filter className="h-5 w-5 text-gray-400" />
+              </div>
+              <select
+                value={selectedAngkatan}
+                onChange={(e) => setSelectedAngkatan(e.target.value)}
+                className="pl-12 pr-10 py-3 bg-white/70 backdrop-blur-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 appearance-none cursor-pointer min-w-48"
+              >
+                <option value="all">Semua Angkatan</option>
+                {uniqueAngkatan.map((angkatan) => (
+                  <option key={angkatan} value={angkatan}>
+                    Angkatan {angkatan}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                <ChevronDown className="h-5 w-5 text-gray-400" />
+              </div>
+            </div>
           </div>
 
           {/* Stats */}
-          <div className="bg-white/70 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20 mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="text-2xl font-bold text-gray-900">
-                  {filteredAlumni.length}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-white/70 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-gray-900">
+                    {filteredAlumni.length}
+                  </div>
+                  <div className="text-gray-600">
+                    Alumni{" "}
+                    {searchTerm || selectedAngkatan !== "all"
+                      ? "ditemukan"
+                      : "total"}
+                  </div>
                 </div>
-                <div className="text-gray-600">
-                  Alumni {searchTerm ? "ditemukan" : "terdaftar"}
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                  <Users className="w-6 h-6 text-white" />
                 </div>
               </div>
-              {searchTerm && (
-                <button
-                  onClick={() => setSearchTerm("")}
-                  className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
-                >
-                  Reset pencarian
-                </button>
-              )}
+            </div>
+
+            <div className="bg-white/70 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-gray-900">
+                    {uniqueAngkatan.length}
+                  </div>
+                  <div className="text-gray-600">Total Angkatan</div>
+                </div>
+                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+                  <Filter className="w-6 h-6 text-white" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white/70 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-2xl font-bold text-gray-900">
+                    {selectedAngkatan === "all"
+                      ? dataAlumni.length
+                      : angkatanStats[selectedAngkatan] || 0}
+                  </div>
+                  <div className="text-gray-600">
+                    {selectedAngkatan === "all"
+                      ? "Total Alumni"
+                      : `Angkatan ${selectedAngkatan}`}
+                  </div>
+                </div>
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                  <Users className="w-6 h-6 text-white" />
+                </div>
+              </div>
             </div>
           </div>
+
+          {/* Filter Info */}
+          {(searchTerm || selectedAngkatan !== "all") && (
+            <div className="bg-white/70 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-white/20 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm text-gray-600">Filter aktif:</span>
+                  {searchTerm && (
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      Pencarian: "{searchTerm}"
+                    </span>
+                  )}
+                  {selectedAngkatan !== "all" && (
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      Angkatan: {selectedAngkatan}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    setSearchTerm("");
+                    setSelectedAngkatan("all");
+                  }}
+                  className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+                >
+                  Reset semua filter
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Table */}
@@ -238,6 +406,9 @@ const Alumni = () => {
               <table className="min-w-full">
                 <thead className="bg-gradient-to-r from-indigo-50 to-purple-50">
                   <tr>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
+                      No
+                    </th>
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700 uppercase tracking-wider">
                       Nama
                     </th>
@@ -259,13 +430,16 @@ const Alumni = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredAlumni.map((alumni, idx) => (
+                  {currentAlumni.map((alumni, idx) => (
                     <tr
                       key={alumni.id}
                       className={`${
                         idx % 2 === 0 ? "bg-white/50" : "bg-gray-50/50"
                       } hover:bg-indigo-50/70 transition-all duration-200`}
                     >
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {startIndex + idx + 1}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="font-medium text-gray-900">
                           {alumni.nama}
@@ -284,7 +458,7 @@ const Alumni = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          {alumni.angkatan}
+                          {alumni.angkatan || "Tidak ada"}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -323,22 +497,25 @@ const Alumni = () => {
                       </td>
                     </tr>
                   ))}
-                  {filteredAlumni.length === 0 && (
+                  {currentAlumni.length === 0 && (
                     <tr>
-                      <td colSpan="6" className="text-center py-12">
+                      <td colSpan="7" className="text-center py-12">
                         <div className="flex flex-col items-center gap-3">
                           <Users className="w-12 h-12 text-gray-400" />
                           <p className="text-gray-500 font-medium">
-                            {searchTerm
+                            {searchTerm || selectedAngkatan !== "all"
                               ? "Tidak ada alumni yang ditemukan"
                               : "Belum ada data alumni"}
                           </p>
-                          {searchTerm && (
+                          {(searchTerm || selectedAngkatan !== "all") && (
                             <button
-                              onClick={() => setSearchTerm("")}
+                              onClick={() => {
+                                setSearchTerm("");
+                                setSelectedAngkatan("all");
+                              }}
                               className="text-indigo-600 hover:text-indigo-800 font-medium"
                             >
-                              Reset pencarian
+                              Reset filter
                             </button>
                           )}
                         </div>
@@ -348,6 +525,24 @@ const Alumni = () => {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
+            {filteredAlumni.length > 0 && (
+              <div className="px-6 py-4 border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-700">
+                    Menampilkan {startIndex + 1} sampai{" "}
+                    {Math.min(endIndex, filteredAlumni.length)} dari{" "}
+                    {filteredAlumni.length} alumni
+                  </div>
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setCurrentPage}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
 
