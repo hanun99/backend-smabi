@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -7,7 +7,6 @@ import {
   MessageSquare,
   Map,
   BarChart2,
-  User,
   Settings,
   Menu,
   X,
@@ -20,12 +19,17 @@ const menuItems = [
   { name: "Testimoni", icon: <MessageSquare />, path: "/testimoni" },
   { name: "Sebaran Universitas", icon: <Map />, path: "/sebaran" },
   { name: "Analytics", icon: <BarChart2 />, path: "/analytics" },
-  { name: "Profile", icon: <User />, path: "/profile" },
   { name: "Setting", icon: <Settings />, path: "/setting" },
 ];
 
 const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [username, setUsername] = useState("Admin");
+
+  useEffect(() => {
+    const storedName = localStorage.getItem("username");
+    if (storedName) setUsername(storedName);
+  }, []);
 
   return (
     <>
@@ -73,7 +77,7 @@ const Sidebar = () => {
                     : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                 }`
               }
-              onClick={() => setIsOpen(false)} // close sidebar on mobile after click
+              onClick={() => setIsOpen(false)}
             >
               {({ isActive }) => (
                 <>
@@ -103,10 +107,14 @@ const Sidebar = () => {
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
           <div className="flex items-center gap-3 p-3 bg-gray-100 rounded-lg">
             <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-teal-500 rounded-full flex items-center justify-center">
-              <span className="text-white text-sm font-bold">A</span>
+              <span className="text-white text-sm font-bold">
+                {username.charAt(0).toUpperCase()}
+              </span>
             </div>
             <div>
-              <p className="text-gray-800 text-sm font-medium">Admin</p>
+              <p className="text-gray-800 text-sm font-medium capitalize">
+                {username}
+              </p>
             </div>
           </div>
         </div>
