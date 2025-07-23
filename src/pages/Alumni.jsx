@@ -249,7 +249,7 @@ const Alumni = () => {
                   Data Alumni
                 </h1>
                 <p className="text-gray-500 text-sm font-medium">
-                  Kelola data alumni terdaftar
+                  Kelola data alumni yang terdaftar
                 </p>
               </div>
             </div>
