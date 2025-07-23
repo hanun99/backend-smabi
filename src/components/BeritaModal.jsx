@@ -59,11 +59,11 @@ const BeritaModal = ({ onClose, onSave, isEdit, initialData }) => {
     let image_url = initialData?.image_url || "";
 
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
+      if (file.size > 100 * 1024 * 1024) {
         setLoading(false);
         return Swal.fire({
           title: "Ukuran Gambar Terlalu Besar",
-          text: "Maksimal 2MB",
+          text: "Maksimal 100MB",
           icon: "error",
           confirmButtonColor: "#ef4444",
         });
