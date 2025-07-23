@@ -246,7 +246,7 @@ const BeritaModal = ({ onClose, onSave, isEdit, initialData }) => {
               </div>
 
               <p className="text-xs text-slate-500">
-                Format: JPG, PNG, JPEG. Maksimal 2MB.
+                Format: JPG, PNG, JPEG. Maksimal 100MB.
               </p>
             </div>
 
